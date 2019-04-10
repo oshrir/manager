@@ -32,10 +32,8 @@ public class ThreadedManager {
     //private static AWSCredentialsProvider credentialsProvider;
 
     public static void main(String[] args) throws Exception {
-        // receives from input args: sqs-url from which it takes requests only
-        // (why? since the manager should know from the first moment where to get his msgs from)
-        // n (files-workers ratio) should be sended through the sqs msg!
         local2ManagerSqsUrl = args[0];
+        bucketName = args[1];
         tasks = new HashMap<String, Task>();
         workers = new ArrayList<Instance>();
 
@@ -66,7 +64,8 @@ public class ThreadedManager {
         workers2ManagerSqsUrl = sqs.createQueue(new CreateQueueRequest(
                 "responses" + UUID.randomUUID())).getQueueUrl();
 
-        TasksReceiver tasksReceiver = new TasksReceiver(manager2WorkersSqsUrl, workers2ManagerSqsUrl, local2ManagerSqsUrl, tasks, workers, bucketName);
+        TasksReceiver tasksReceiver = new TasksReceiver(manager2WorkersSqsUrl, workers2ManagerSqsUrl,
+                local2ManagerSqsUrl, tasks, workers, bucketName);
         ResponsesReceiver responsesReceiver = new ResponsesReceiver(workers2ManagerSqsUrl, tasks, bucketName);
 
         Thread tasksReceiverThread = new Thread(tasksReceiver);
@@ -133,9 +132,5 @@ public class ThreadedManager {
         // TODO - turn off the manager - how?
         ec2.shutdown(); // doesnt do the work - onlt shuts down the client
 
-    }
-
-    public static String getLocalapp2ManagerQueue(){
-        return local2ManagerSqsUrl;
     }
 }

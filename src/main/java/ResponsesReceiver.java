@@ -9,6 +9,7 @@ import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.amazonaws.services.sqs.AmazonSQSClient;
 import com.amazonaws.services.sqs.AmazonSQSClientBuilder;
 import com.amazonaws.services.sqs.model.Message;
+import com.amazonaws.services.sqs.model.MessageAttributeValue;
 import com.amazonaws.services.sqs.model.ReceiveMessageRequest;
 import com.amazonaws.services.sqs.model.SendMessageRequest;
 
@@ -16,6 +17,7 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -58,15 +60,20 @@ public class ResponsesReceiver implements Runnable {
                 lastProcessedTask.incJobs();
                 if (lastProcessedTask.isDone()) {
                     // upload the summary file to s3
-                    String outputKey = lastProcessedTaskID + "_summary.txt";
+                    final String outputKey = lastProcessedTaskID + "_summary.txt";
                     PutObjectRequest putObjectRequest = new PutObjectRequest(bucketName, outputKey, new File(outputKey))
                             .withCannedAcl(CannedAccessControlList.PublicRead);
                     s3.putObject(putObjectRequest);
-                    String outputS3Url = s3.getResourceUrl(bucketName, outputKey);
 
                     // send sqs msg to the local computer with s3 location of the sum-file
                     // TODO - decide if the url should be in an attribute
-                    sqs.sendMessage(new SendMessageRequest(lastProcessedTask.getResponseSqsUrl(), "done task " + outputS3Url));
+                    Map<String,MessageAttributeValue> msgAttributes = new HashMap<String, MessageAttributeValue>(){
+                        {
+                            put("key", new MessageAttributeValue().withDataType("String").withStringValue(outputKey));
+                        }};
+                    SendMessageRequest sendMsgRequest = new SendMessageRequest(lastProcessedTask.getResponseSqsUrl(), "done task")
+                            .withMessageAttributes(msgAttributes);
+                    sqs.sendMessage(sendMsgRequest);
                     // for now it is an infinite loop - should add a condition and split into threads
                 }
             }

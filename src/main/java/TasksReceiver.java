@@ -80,9 +80,8 @@ public class TasksReceiver implements Runnable {
                 Map<String, MessageAttributeValue> msgAttributes = message.getMessageAttributes();
                 String taskType = msgAttributes.get("task_type").getStringValue();
                 if (taskType.equals("new_task")) {
-                    String bucketName = msgAttributes.get("bucket_name").getStringValue();
                     String key = msgAttributes.get("key").getStringValue();
-                    String responseSqsUrl = msgAttributes.get("sqs_url").getStringValue();
+                    String responseSqsUrl = msgAttributes.get("output_sqs").getStringValue();
                     int messagePerWorker = Integer.parseInt(msgAttributes.get("n").getStringValue());
 
                     sqs.deleteMessage(local2ManagerSqsUrl, message.getReceiptHandle());
@@ -90,7 +89,7 @@ public class TasksReceiver implements Runnable {
                     String taskID = "task" + tasksCounter;
                     int newMsgsCounter;
                     try {
-                        newMsgsCounter = processNewTask(bucketName, key, taskID);
+                        newMsgsCounter = processNewTask(key, taskID);
                         Task newTask = new Task(responseSqsUrl, newMsgsCounter);
                         tasks.put(taskID, newTask);
                         createWorkersIfNeeded(newMsgsCounter / messagePerWorker);
@@ -120,7 +119,7 @@ public class TasksReceiver implements Runnable {
     }
 
     // process the new task, create sqs msgs, returns the number of tasks created
-    private int processNewTask (String bucketName, String key, final String taskID) throws IOException {
+    private int processNewTask (String key, final String taskID) throws IOException {
         S3Object input = s3.getObject(new GetObjectRequest(bucketName, key));
         BufferedReader reader = new BufferedReader(new InputStreamReader(input.getObjectContent()));
         int counter = 0;
@@ -152,11 +151,11 @@ public class TasksReceiver implements Runnable {
         if( amountOfWorkersToCreate > 0 ) {
             // TODO - which ami? bucket and key? create a new keyPair?
             RunInstancesRequest request = new RunInstancesRequest("ami-0ff8a91507f77f867", amountOfWorkersToCreate, amountOfWorkersToCreate)
-                    .withIamInstanceProfile(new IamInstanceProfileSpecification().withName("Manager"))
+                    .withIamInstanceProfile(new IamInstanceProfileSpecification().withName("dps_ass1_role"))
                     .withInstanceType(InstanceType.T2Micro.toString())
                     // TODO - this should be the location of the jar file
-                    .withUserData(makeScript("bucket - insert here", "key - insert here"))
-                    .withKeyName("oshrir");
+                    .withUserData(makeScript(bucketName, "worker.jar"))
+                    .withKeyName("testKey");
             List<Instance> newInstances = ec2.runInstances(request).getReservation().getInstances();
             workers.addAll(newInstances);
         }
