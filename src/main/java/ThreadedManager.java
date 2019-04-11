@@ -17,7 +17,6 @@ import com.amazonaws.services.sqs.model.ReceiveMessageRequest;
 import java.util.*;
 
 public class ThreadedManager {
-    // TODO - decide where to put the output files
     private static String bucketName = "";
 
     private static AmazonS3Client s3;
@@ -29,7 +28,7 @@ public class ThreadedManager {
     private static Map<String, Task> tasks;
     private static String local2ManagerSqsUrl;
     // to delete!
-    //private static AWSCredentialsProvider credentialsProvider;
+    // private static AWSCredentialsProvider credentialsProvider;
 
     public static void main(String[] args) throws Exception {
         local2ManagerSqsUrl = args[0];
@@ -40,7 +39,7 @@ public class ThreadedManager {
         // SETUP - aws services (TODO - decide whether it is needed here or not)
         // no need to supply credentials, since temporary credentials are created according to the IAM role
         // to delete!
-        //credentialsProvider = new AWSStaticCredentialsProvider(new ProfileCredentialsProvider().getCredentials());
+        // credentialsProvider = new AWSStaticCredentialsProvider(new ProfileCredentialsProvider().getCredentials());
         s3 = (AmazonS3Client) AmazonS3ClientBuilder.standard()
                 //remove      .withCredentials(credentialsProvider)
                 .withCredentials(new InstanceProfileCredentialsProvider(false))
@@ -98,16 +97,6 @@ public class ThreadedManager {
         }*/
     }
 
-    // short method for receiving one message
-    protected static Message receiveSingleMessage(String sqsUrl) {
-        ReceiveMessageRequest receiveMessageRequest = new ReceiveMessageRequest(sqsUrl)
-                .withMaxNumberOfMessages(1);
-        List<Message> messages = sqs.receiveMessage(receiveMessageRequest).getMessages();
-        if (messages.isEmpty())
-            return null;
-        return messages.get(0);
-    }
-
     private static void terminate(Thread responsesReceiver) {
         // wait for all workers to finish their job
         while (true) {
@@ -130,7 +119,6 @@ public class ThreadedManager {
         }
 
         // TODO - turn off the manager - how?
-        ec2.shutdown(); // doesnt do the work - onlt shuts down the client
-
+        ec2.shutdown(); // doesnt do the work - only shuts down the client
     }
 }

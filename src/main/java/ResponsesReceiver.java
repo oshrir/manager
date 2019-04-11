@@ -29,7 +29,7 @@ public class ResponsesReceiver implements Runnable {
     private AmazonS3Client s3;
     private AmazonSQSClient sqs;
     // to delete!
-    //private static AWSCredentialsProvider credentialsProvider;
+    // private static AWSCredentialsProvider credentialsProvider;
 
     public ResponsesReceiver(String workers2ManagerSqsUrl, Map<String, Task> tasks, String bucketName) {
         this.workers2ManagerSqsUrl = workers2ManagerSqsUrl;
@@ -39,7 +39,7 @@ public class ResponsesReceiver implements Runnable {
 
     public void run() {
         // to delete!
-        //credentialsProvider = new AWSStaticCredentialsProvider(new ProfileCredentialsProvider().getCredentials());
+        // credentialsProvider = new AWSStaticCredentialsProvider(new ProfileCredentialsProvider().getCredentials());
         s3 = (AmazonS3Client) AmazonS3ClientBuilder.standard()
                 //remove      .withCredentials(credentialsProvider)
                 .withCredentials(new InstanceProfileCredentialsProvider(false))

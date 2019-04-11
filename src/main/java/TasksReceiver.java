@@ -4,10 +4,7 @@ import com.amazonaws.auth.InstanceProfileCredentialsProvider;
 import com.amazonaws.auth.profile.ProfileCredentialsProvider;
 import com.amazonaws.services.ec2.AmazonEC2Client;
 import com.amazonaws.services.ec2.AmazonEC2ClientBuilder;
-import com.amazonaws.services.ec2.model.IamInstanceProfileSpecification;
-import com.amazonaws.services.ec2.model.Instance;
-import com.amazonaws.services.ec2.model.InstanceType;
-import com.amazonaws.services.ec2.model.RunInstancesRequest;
+import com.amazonaws.services.ec2.model.*;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.s3.model.GetObjectRequest;
@@ -56,7 +53,7 @@ public class TasksReceiver implements Runnable {
 
     public void run() {
         // to delete!
-        //credentialsProvider = new AWSStaticCredentialsProvider(new ProfileCredentialsProvider().getCredentials());
+        // credentialsProvider = new AWSStaticCredentialsProvider(new ProfileCredentialsProvider().getCredentials());
         s3 = (AmazonS3Client) AmazonS3ClientBuilder.standard()
                 //remove      .withCredentials(credentialsProvider)
                 .withCredentials(new InstanceProfileCredentialsProvider(false))
@@ -68,7 +65,7 @@ public class TasksReceiver implements Runnable {
                 .withRegion("us-east-1")
                 .build();
         ec2 = (AmazonEC2Client) AmazonEC2ClientBuilder.standard()
-                //remove        .withCredentials(credentialsProvider)
+                //remove      .withCredentials(credentialsProvider)
                 .withCredentials(new InstanceProfileCredentialsProvider(false))
                 .withRegion("us-east-1")
                 .build();
@@ -110,7 +107,7 @@ public class TasksReceiver implements Runnable {
     private Message receiveNewTaskMessage(String sqsUrl) {
         ReceiveMessageRequest receiveMessageRequest = new ReceiveMessageRequest(sqsUrl)
                 .withMaxNumberOfMessages(1)
-                .withMessageAttributeNames("task_type", "bucket_name", "key", "sqs_url", "n")
+                .withMessageAttributeNames("task_type", "bucket_name", "key", "output_sqs", "n")
                 .withAttributeNames("");
         List<Message> messages = sqs.receiveMessage(receiveMessageRequest).getMessages();
         if (messages.isEmpty())
@@ -151,12 +148,20 @@ public class TasksReceiver implements Runnable {
         if( amountOfWorkersToCreate > 0 ) {
             // TODO - which ami? bucket and key? create a new keyPair?
             RunInstancesRequest request = new RunInstancesRequest("ami-0ff8a91507f77f867", amountOfWorkersToCreate, amountOfWorkersToCreate)
-                    .withIamInstanceProfile(new IamInstanceProfileSpecification().withName("dps_ass1_role"))
+                    .withIamInstanceProfile(new IamInstanceProfileSpecification().withName("dps_ass1_role_v2"))
+                    //.withIamInstanceProfile(new IamInstanceProfileSpecification().withName("Manager"))
                     .withInstanceType(InstanceType.T2Micro.toString())
                     // TODO - this should be the location of the jar file
-                    .withUserData(makeScript(bucketName, "worker.jar"))
+                    .withUserData(makeScript(bucketName, "dps_ass1_worker.jar"))
                     .withKeyName("testKey");
+                    //.withKeyName("oshrir");
             List<Instance> newInstances = ec2.runInstances(request).getReservation().getInstances();
+            for(Instance instance : newInstances) {
+                CreateTagsRequest createTagsRequest = new CreateTagsRequest()
+                        .withResources(instance.getInstanceId())
+                        .withTags(new Tag("type", "Worker"));
+                ec2.createTags(createTagsRequest);
+            }
             workers.addAll(newInstances);
         }
     }
