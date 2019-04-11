@@ -72,7 +72,7 @@ public class ThreadedManager {
 
         tasksReceiverThread.start();
         responsesReceiverThread.start();
-
+        System.out.print("");
         // wait until receiving terminate task - the TasksReceiver Thread should end its job
         tasksReceiverThread.join();
         terminate(responsesReceiverThread);
