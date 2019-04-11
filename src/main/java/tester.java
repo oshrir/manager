@@ -32,9 +32,8 @@ public class tester {
         Map<String,MessageAttributeValue> msgAttributes = new HashMap<String, MessageAttributeValue>(){
             {
                 put("task_type", new MessageAttributeValue().withDataType("String").withStringValue("new_task"));
-                put("bucket_name", new MessageAttributeValue().withDataType("String").withStringValue("testbucket15993"));
                 put("key", new MessageAttributeValue().withDataType("String").withStringValue("sampleInput.txt"));
-                put("sqs_url", new MessageAttributeValue().withDataType("String").withStringValue("https://sqs.us-east-1.amazonaws.com/632257081133/responses"));
+                put("sqs", new MessageAttributeValue().withDataType("String").withStringValue("https://sqs.us-east-1.amazonaws.com/632257081133/responses"));
                 put("n", new MessageAttributeValue().withDataType("Number").withStringValue("15"));
             }};
         // send a new sqs msg with the details of the input file
