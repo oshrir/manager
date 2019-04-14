@@ -2,8 +2,9 @@
 
 Be sure to submit a README file. Does it contain all the requested information? If you miss any part, you will lose points. Yes including your names and ids.
 
+### Security:
+We still need to understand how to transfer the credentials to the local app (or we doesnt have to?), but besides that - the manager and all of the workers get temporary credentials from their IAM role - which means we don't transfer them credentials at all, particulary not as plain text.
 
-Did you think for more than 2 minutes about security? Do not send your credentials in plain text!
 
 
 Did you think about scalability? Will your program work properly when 1 million clients connected at the same time? How about 2 million? 1 billion? Scalability is very important aspect of the system, be sure it is scalable!
@@ -12,7 +13,10 @@ Did you think about scalability? Will your program work properly when 1 million 
 What about persistence? What if a node dies? What if a node stalls for a while? Have you taken care of all possible outcomes in the system? Think of more possible issues that might arise from failures. What did you do to solve it? What about broken communications? Be sure to handle all fail-cases!
 
 
-Threads in your application, when is it a good idea? When is it bad? Invest time to think about threads in your application!
+
+### Threads:
+We used threads in our Manager - one thread which operates the thread pool for the clients, and another thread that processes the responses from the workers. This is the only place where we thought it is neccessary to use threads in out application, so we could handle a big amount of clients at the same time.
+
 
 
 Did you run more than one client at the same time? Be sure they work properly, and finish properly, and your results are correct.
