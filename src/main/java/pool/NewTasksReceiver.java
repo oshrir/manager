@@ -68,7 +68,7 @@ public class NewTasksReceiver implements Runnable {
                     break;
                 }
 
-                pool.execute(new ProcessNewTask(message.getMessageAttributes(), bucketName, manager2WorkersSqsUrl,
+                pool.execute(new NewTaskProcessor(message.getMessageAttributes(), bucketName, manager2WorkersSqsUrl,
                         workers2ManagerSqsUrl, workers, tasks));
                 sqs.deleteMessage(local2ManagerSqsUrl, message.getReceiptHandle());
 

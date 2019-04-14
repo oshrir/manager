@@ -23,7 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-public class ProcessNewTask implements Runnable {
+public class NewTaskProcessor implements Runnable {
 
     private String bucketName;
     private String manager2LocalSqsUrl;
@@ -38,7 +38,7 @@ public class ProcessNewTask implements Runnable {
     private List<Instance> workers;
     private Map<String, Task> tasks;
 
-    public ProcessNewTask(Map<String, MessageAttributeValue> msgAttributes, String bucketName,
+    public NewTaskProcessor(Map<String, MessageAttributeValue> msgAttributes, String bucketName,
                           String manager2WorkersSqsUrl, String workers2ManagerSqsUrl, List<Instance> workers,
                           Map<String, Task> tasks) {
         this.bucketName = bucketName;
