@@ -65,7 +65,6 @@ public class ResponsesReceiver implements Runnable {
                     s3.putObject(putObjectRequest);
 
                     // send sqs msg to the local computer with s3 location of the sum-file
-                    // TODO - decide if the url should be in an attribute
                     Map<String,MessageAttributeValue> msgAttributes = new HashMap<String, MessageAttributeValue>(){
                         {
                             put("key", new MessageAttributeValue().withDataType("String").withStringValue(outputKey));
@@ -73,6 +72,8 @@ public class ResponsesReceiver implements Runnable {
                     SendMessageRequest sendMsgRequest = new SendMessageRequest(lastProcessedTask.getResponseSqsUrl(), "done task")
                             .withMessageAttributes(msgAttributes);
                     sqs.sendMessage(sendMsgRequest);
+
+                    lastProcessedTask.setSent();
                     // for now it is an infinite loop - should add a condition and split into threads
                 }
             }

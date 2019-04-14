@@ -110,7 +110,7 @@ public class ThreadPoolManager {
         while (true) {
             boolean done = true;
             for (Map.Entry<String, Task> entry: tasks.entrySet()) {
-                if (!entry.getValue().isDone()) {
+                if (!entry.getValue().isSent()) {
                     done = false;
                     break;
                 }
@@ -128,5 +128,7 @@ public class ThreadPoolManager {
 
         // TODO - turn off the manager - how?
         ec2.shutdown(); // doesnt do the work - only shuts down the client
+
+        // TODO - delete all queues and maybe shutdown the clients
     }
 }
