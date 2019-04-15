@@ -3,20 +3,12 @@ package pool;
 import com.amazonaws.auth.InstanceProfileCredentialsProvider;
 import com.amazonaws.services.ec2.AmazonEC2Client;
 import com.amazonaws.services.ec2.AmazonEC2ClientBuilder;
-import com.amazonaws.services.ec2.model.Instance;
-import com.amazonaws.services.ec2.model.TerminateInstancesRequest;
-import com.amazonaws.services.s3.AmazonS3Client;
-import com.amazonaws.services.s3.AmazonS3ClientBuilder;
+import com.amazonaws.services.ec2.model.*;
 import com.amazonaws.services.sqs.AmazonSQSClient;
 import com.amazonaws.services.sqs.AmazonSQSClientBuilder;
-import com.amazonaws.services.sqs.model.CreateQueueRequest;
 import com.amazonaws.services.sqs.model.Message;
-import com.amazonaws.services.sqs.model.MessageAttributeValue;
 import com.amazonaws.services.sqs.model.ReceiveMessageRequest;
 import com.amazonaws.util.EC2MetadataUtils;
-
-import java.io.File;
-import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -25,13 +17,11 @@ public class ThreadPoolManager {
     //received from the first local app (will be a macro in local app)
     private static String bucketName = "";
 
-    private static AmazonS3Client s3;
+    private static String manager2WorkersSqsUrl;
+    private static String workers2ManagerSqsUrl;
+
     private static AmazonSQSClient sqs;
     private static AmazonEC2Client ec2;
-
-    private static String manager2WorkersSqsUrl = "";
-    private static String workers2ManagerSqsUrl = "";
-    private static String local2ManagerSqsUrl = "";
 
     private static List<Instance> workers;
     private static Map<String, Task> tasks;
@@ -40,7 +30,7 @@ public class ThreadPoolManager {
     // private static AWSCredentialsProvider credentialsProvider;
 
     public static void main(String[] args) throws Exception {
-        local2ManagerSqsUrl = args[0];
+        String local2ManagerSqsUrl = args[0];
         bucketName = args[1];
         workers = new ArrayList<Instance>();
         tasks = new HashMap<String, Task>();
@@ -49,11 +39,6 @@ public class ThreadPoolManager {
         // no need to supply credentials, since temporary credentials are created according to the IAM role
         // to delete - only for local tests
         // credentialsProvider = new AWSStaticCredentialsProvider(new ProfileCredentialsProvider().getCredentials());
-        s3 = (AmazonS3Client) AmazonS3ClientBuilder.standard()
-                //remove      .withCredentials(credentialsProvider)
-                .withCredentials(new InstanceProfileCredentialsProvider(false))
-                .withRegion("us-east-1")
-                .build();
         sqs = (AmazonSQSClient) AmazonSQSClientBuilder.standard()
                 //remove      .withCredentials(credentialsProvider)
                 .withCredentials(new InstanceProfileCredentialsProvider(false))
@@ -67,10 +52,8 @@ public class ThreadPoolManager {
 
         // create new sqs (manager->workers and workers->manager)
         // TODO - add error handling
-        manager2WorkersSqsUrl = sqs.createQueue(new CreateQueueRequest(
-                "actions" + UUID.randomUUID())).getQueueUrl();
-        workers2ManagerSqsUrl = sqs.createQueue(new CreateQueueRequest(
-                "responses" + UUID.randomUUID())).getQueueUrl();
+        manager2WorkersSqsUrl = sqs.createQueue("actions" + UUID.randomUUID()).getQueueUrl();
+        workers2ManagerSqsUrl = sqs.createQueue("responses" + UUID.randomUUID()).getQueueUrl();
 
         Thread responsesReceiver = new Thread(new ResponsesReceiver(workers2ManagerSqsUrl, tasks, bucketName));
         responsesReceiver.start();
@@ -138,19 +121,34 @@ public class ThreadPoolManager {
             }
             if (done) break;
         }
+
         // the responsesReceiver thread finished sending all summary files - should terminate
         responsesReceiver.interrupt();
 
-        // terminates the workers and itself
+        // terminates the workers
         for (Instance worker : workers) {
             ec2.terminateInstances(new TerminateInstancesRequest().withInstanceIds(worker.getInstanceId()));
         }
 
-        // TODO - turn off the manager - how?
+        // delete all queues and shutdown the sqs client
+        sqs.deleteQueue(manager2WorkersSqsUrl);
+        sqs.deleteQueue(workers2ManagerSqsUrl);
+        sqs.shutdown();
+
+        // terminates itself
         ec2.terminateInstances(new TerminateInstancesRequest().withInstanceIds(EC2MetadataUtils.getInstanceId()));
-
-        ec2.shutdown(); // doesnt do the work - only shuts down the client
-
-        // TODO - delete all queues and maybe shutdown the clients
     }
+
+/*    private void statusCheck() {
+        DescribeInstancesResult result = ec2.describeInstances(new DescribeInstancesRequest()
+                .withFilters(new Filter("tag:type", new ArrayList<String>(Collections.singletonList("Worker")))));
+        for (Reservation reservation : result.getReservations()) {
+            List<Instance> instances = reservation.getInstances();
+            if (!instances.isEmpty()) {
+                for (Instance instance : instances) {
+                    instance.
+                }
+            }
+        }
+    }*/
 }
