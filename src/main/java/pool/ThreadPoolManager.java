@@ -13,6 +13,7 @@ import com.amazonaws.services.sqs.model.CreateQueueRequest;
 import com.amazonaws.services.sqs.model.Message;
 import com.amazonaws.services.sqs.model.MessageAttributeValue;
 import com.amazonaws.services.sqs.model.ReceiveMessageRequest;
+import com.amazonaws.util.EC2MetadataUtils;
 
 import java.io.File;
 import java.io.IOException;
@@ -71,19 +72,28 @@ public class ThreadPoolManager {
         workers2ManagerSqsUrl = sqs.createQueue(new CreateQueueRequest(
                 "responses" + UUID.randomUUID())).getQueueUrl();
 
-        NewTasksReceiver newTasksReceiver = new NewTasksReceiver(manager2WorkersSqsUrl, workers2ManagerSqsUrl,
-                local2ManagerSqsUrl, tasks, workers, bucketName);
-        ResponsesReceiver responsesReceiver = new ResponsesReceiver(workers2ManagerSqsUrl, tasks, bucketName);
+        Thread responsesReceiver = new Thread(new ResponsesReceiver(workers2ManagerSqsUrl, tasks, bucketName));
+        responsesReceiver.start();
 
-        Thread newTasksReceiverThread = new Thread(newTasksReceiver);
-        Thread responsesReceiverThread = new Thread(responsesReceiver);
+        ExecutorService pool = Executors.newCachedThreadPool(Executors.defaultThreadFactory());
 
-        newTasksReceiverThread.start();
-        responsesReceiverThread.start();
+        while (true) {
+            Message message = receiveNewTaskMessage(local2ManagerSqsUrl);
+            if (message != null) {
+                // check if should terminate
+                if (message.getMessageAttributes().get("task_type").equals("terminate")) {
+                    sqs.deleteMessage(local2ManagerSqsUrl, message.getReceiptHandle());
+                    break;
+                }
 
-        // wait until receiving terminate task - the TasksReceiver Thread should end its job
-        newTasksReceiverThread.join();
-        terminate(responsesReceiverThread);
+                pool.execute(new NewTaskProcessor(message.getMessageAttributes(), bucketName, manager2WorkersSqsUrl,
+                        workers2ManagerSqsUrl, workers, tasks));
+                sqs.deleteMessage(local2ManagerSqsUrl, message.getReceiptHandle());
+
+            } // else, keep listening to new msg - the loop continues
+        }
+
+        terminate(responsesReceiver);
 
         // TODO - exception handling according to the specifications for all services
         /*try {
@@ -105,6 +115,17 @@ public class ThreadPoolManager {
         }*/
     }
 
+    private static Message receiveNewTaskMessage(String sqsUrl) {
+        ReceiveMessageRequest receiveMessageRequest = new ReceiveMessageRequest(sqsUrl)
+                .withMaxNumberOfMessages(1)
+                .withMessageAttributeNames("task_type", "bucket_name", "key", "output_sqs", "n")
+                .withAttributeNames("");
+        List<Message> messages = sqs.receiveMessage(receiveMessageRequest).getMessages();
+        if (messages.isEmpty())
+            return null;
+        return messages.get(0);
+    }
+
     private static void terminate(Thread responsesReceiver) {
         // wait for all workers to finish their job
         while (true) {
@@ -122,11 +143,12 @@ public class ThreadPoolManager {
 
         // terminates the workers and itself
         for (Instance worker : workers) {
-            TerminateInstancesRequest request = new TerminateInstancesRequest().withInstanceIds(worker.getInstanceId());
-            ec2.terminateInstances(request);
+            ec2.terminateInstances(new TerminateInstancesRequest().withInstanceIds(worker.getInstanceId()));
         }
 
         // TODO - turn off the manager - how?
+        ec2.terminateInstances(new TerminateInstancesRequest().withInstanceIds(EC2MetadataUtils.getInstanceId()));
+
         ec2.shutdown(); // doesnt do the work - only shuts down the client
 
         // TODO - delete all queues and maybe shutdown the clients
