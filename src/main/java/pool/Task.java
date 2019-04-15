@@ -17,9 +17,7 @@ public class Task {
         return responseSqsUrl;
     }
 
-    public void incJobs() {
-        doneJobs++;
-    }
+    public void incJobs() { doneJobs++; }
 
     public boolean isDone() {
         return totalJobs == doneJobs;

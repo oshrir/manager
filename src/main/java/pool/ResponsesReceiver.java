@@ -22,9 +22,10 @@ import java.util.Map;
 
 public class ResponsesReceiver implements Runnable {
 
-    protected String workers2ManagerSqsUrl;
-    protected Map<String, Task> tasks;
-    protected String bucketName;
+    private String bucketName;
+    private String workers2ManagerSqsUrl;
+    private Map<String, Task> tasks;
+
     private AmazonS3Client s3;
     private AmazonSQSClient sqs;
     // to delete!
@@ -37,6 +38,22 @@ public class ResponsesReceiver implements Runnable {
     }
 
     public void run() {
+        initAWSServices();
+
+        while (true) {
+            Message response = receiveResponseMessage(workers2ManagerSqsUrl);
+            if (response != null) {
+                String lastProcessedTaskID = processResponse(response);
+                sqs.deleteMessage(workers2ManagerSqsUrl, response.getReceiptHandle());
+                Task lastProcessedTask = tasks.get(lastProcessedTaskID);
+                lastProcessedTask.incJobs();
+                if (lastProcessedTask.isDone())
+                    uploadSummaryToS3AndSendMsg(lastProcessedTaskID, lastProcessedTask);
+            }
+        }
+    }
+
+    private void initAWSServices() {
         // to delete!
         // credentialsProvider = new AWSStaticCredentialsProvider(new ProfileCredentialsProvider().getCredentials());
         s3 = (AmazonS3Client) AmazonS3ClientBuilder.standard()
@@ -49,35 +66,6 @@ public class ResponsesReceiver implements Runnable {
                 .withCredentials(new InstanceProfileCredentialsProvider(false))
                 .withRegion("us-east-1")
                 .build();
-
-        while (true) {
-            Message response = receiveResponseMessage(workers2ManagerSqsUrl);
-            if (response != null) {
-                String lastProcessedTaskID = processResponse(response);
-                sqs.deleteMessage(workers2ManagerSqsUrl, response.getReceiptHandle());
-                Task lastProcessedTask = tasks.get(lastProcessedTaskID);
-                lastProcessedTask.incJobs();
-                if (lastProcessedTask.isDone()) {
-                    // upload the summary file to s3
-                    final String outputKey = lastProcessedTaskID + "_summary.txt";
-                    PutObjectRequest putObjectRequest = new PutObjectRequest(bucketName, outputKey, new File(outputKey))
-                            .withCannedAcl(CannedAccessControlList.PublicRead);
-                    s3.putObject(putObjectRequest);
-
-                    // send sqs msg to the local computer with s3 location of the sum-file
-                    Map<String,MessageAttributeValue> msgAttributes = new HashMap<String, MessageAttributeValue>(){
-                        {
-                            put("key", new MessageAttributeValue().withDataType("String").withStringValue(outputKey));
-                        }};
-                    SendMessageRequest sendMsgRequest = new SendMessageRequest(lastProcessedTask.getResponseSqsUrl(), "done task")
-                            .withMessageAttributes(msgAttributes);
-                    sqs.sendMessage(sendMsgRequest);
-
-                    lastProcessedTask.setSent();
-                    // for now it is an infinite loop - should add a condition and split into threads
-                }
-            }
-        }
     }
 
     private Message receiveResponseMessage(String sqsUrl) {
@@ -92,13 +80,12 @@ public class ResponsesReceiver implements Runnable {
     }
 
     // processes the response and adds the new file to the appropriate file
-    protected static String processResponse (Message response) {
+    private static String processResponse (Message response) {
         String taskID = response.getMessageAttributes().get("task_id").getStringValue();
         String newLine = response.getBody();
         BufferedWriter bw = null;
         FileWriter fw = null;
         try {
-            // TODO - what is the correct path?
             File sumFile = new File(taskID + "_summary.txt");
             fw = new FileWriter(sumFile.getAbsoluteFile(), true);
             bw = new BufferedWriter(fw);
@@ -107,14 +94,28 @@ public class ResponsesReceiver implements Runnable {
             e.printStackTrace();
         } finally {
             try {
-                if (bw != null)
-                    bw.close();
-                if (fw != null)
-                    fw.close();
+                if (bw != null) bw.close();
+                if (fw != null) fw.close();
             } catch (IOException ex) {
                 ex.printStackTrace();
             }
         }
         return taskID;
+    }
+
+    // upload the summary file to s3 and send sqs msg to the local computer with s3 location of the sum-file
+    private void uploadSummaryToS3AndSendMsg (String doneTaskID, Task doneTask) {
+        final String outputKey = doneTaskID + "_summary.txt";
+        s3.putObject(new PutObjectRequest(bucketName, outputKey, new File(outputKey))
+                .withCannedAcl(CannedAccessControlList.PublicRead));
+
+        sqs.sendMessage(new SendMessageRequest(doneTask.getResponseSqsUrl(), "done task")
+                .withMessageAttributes(new HashMap<String, MessageAttributeValue>(){
+                    {
+                        put("key", new MessageAttributeValue()
+                                .withDataType("String")
+                                .withStringValue(outputKey));
+                    }}));
+        doneTask.setSent();
     }
 }

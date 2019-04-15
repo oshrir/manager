@@ -24,8 +24,10 @@ import java.util.Map;
 import java.util.UUID;
 
 public class NewTaskProcessor implements Runnable {
-
+    final private String AMI_ID = "ami-0ff8a91507f77f867";
+    final private String IAM_ROLE = "dps_ass1_role_v2";
     private String bucketName;
+
     private String manager2LocalSqsUrl;
     private String manager2WorkersSqsUrl;
     private String workers2ManagerSqsUrl;
@@ -122,13 +124,11 @@ public class NewTaskProcessor implements Runnable {
 
     // create the needed number of new instances (TODO - insert bucket and key)
     private void createWorkersIfNeeded(int numOfNeededWorkers) {
-
         int amountOfWorkersToCreate = numOfNeededWorkers - workers.size();
-
-        if( amountOfWorkersToCreate > 0 ) {
-            // TODO - which ami? bucket and key? create a new keyPair? AMI should be macro
-            RunInstancesRequest request = new RunInstancesRequest("ami-0ff8a91507f77f867", amountOfWorkersToCreate, amountOfWorkersToCreate)
-                    .withIamInstanceProfile(new IamInstanceProfileSpecification().withName("dps_ass1_role_v2"))
+        if (amountOfWorkersToCreate > 0) {
+            // TODO - bucket and key? create a new keyPair?
+            RunInstancesRequest request = new RunInstancesRequest(AMI_ID, amountOfWorkersToCreate, amountOfWorkersToCreate)
+                    .withIamInstanceProfile(new IamInstanceProfileSpecification().withName(IAM_ROLE))
                     //.withIamInstanceProfile(new IamInstanceProfileSpecification().withName("Manager"))
                     .withInstanceType(InstanceType.T2Micro.toString())
                     // TODO - this should be the location of the jar file

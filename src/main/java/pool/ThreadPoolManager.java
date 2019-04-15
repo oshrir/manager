@@ -9,11 +9,16 @@ import com.amazonaws.services.sqs.AmazonSQSClientBuilder;
 import com.amazonaws.services.sqs.model.Message;
 import com.amazonaws.services.sqs.model.ReceiveMessageRequest;
 import com.amazonaws.util.EC2MetadataUtils;
+import org.apache.commons.codec.binary.Base64;
+
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class ThreadPoolManager {
+    final private String AMI_ID = "ami-0ff8a91507f77f867";
+    final private String IAM_ROLE = "dps_ass1_role_v2";
+
     //received from the first local app (will be a macro in local app)
     private static String bucketName = "";
 
@@ -139,16 +144,43 @@ public class ThreadPoolManager {
         ec2.terminateInstances(new TerminateInstancesRequest().withInstanceIds(EC2MetadataUtils.getInstanceId()));
     }
 
-/*    private void statusCheck() {
-        DescribeInstancesResult result = ec2.describeInstances(new DescribeInstancesRequest()
-                .withFilters(new Filter("tag:type", new ArrayList<String>(Collections.singletonList("Worker")))));
-        for (Reservation reservation : result.getReservations()) {
-            List<Instance> instances = reservation.getInstances();
-            if (!instances.isEmpty()) {
-                for (Instance instance : instances) {
-                    instance.
+    private void statusCheck() {
+        DescribeInstanceStatusResult result = ec2.describeInstanceStatus(new DescribeInstanceStatusRequest()
+            .withIncludeAllInstances(true));
+        List<InstanceStatus> statuses = result.getInstanceStatuses();
+        for (InstanceStatus status : statuses) {
+            if (!("ok".equals(status.getInstanceStatus().getStatus()) &&
+                  "ok".equals(status.getSystemStatus().getStatus()))) {
+                String instanceID2Terminate = status.getInstanceId();
+                ec2.terminateInstances(new TerminateInstancesRequest().withInstanceIds(instanceID2Terminate));
+
+                RunInstancesRequest request = new RunInstancesRequest(AMI_ID, 1, 1)
+                        .withIamInstanceProfile(new IamInstanceProfileSpecification().withName(IAM_ROLE))
+                        .withInstanceType(InstanceType.T2Micro.toString())
+                        // TODO - this should be the location of the jar file
+                        .withUserData(makeScript("dps_ass1_worker.jar"))
+                        .withKeyName("testKey");
+                Instance newInstance = ec2.runInstances(request).getReservation().getInstances().get(0);
+                ec2.createTags(new CreateTagsRequest()
+                        .withResources(newInstance.getInstanceId())
+                        .withTags(new Tag("type", "Worker")));
+                for (Instance instance : workers) {
+                    if (instance.getInstanceId().equals(instanceID2Terminate)) {
+                        workers.remove(instance);
+                        break;
+                    }
                 }
+                workers.add(newInstance);
             }
         }
-    }*/
+    }
+
+    private String makeScript (String keyName) {
+        String scriptSplit =
+                "#! /bin/bash \n" +
+                        "wget https://s3.amazonaws.com/" + bucketName + "/" + keyName + " -O ./" + keyName + " \n" +
+                        "java -jar " + keyName + " " + manager2WorkersSqsUrl + " " + workers2ManagerSqsUrl + " " +
+                        bucketName;
+        return new String (Base64.encodeBase64(scriptSplit.getBytes()));
+    }
 }
