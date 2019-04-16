@@ -31,15 +31,16 @@ public class ResponsesReceiver implements Runnable {
     // to delete!
     // private static AWSCredentialsProvider credentialsProvider;
 
-    public ResponsesReceiver(String workers2ManagerSqsUrl, Map<String, Task> tasks, String bucketName) {
+    public ResponsesReceiver(String workers2ManagerSqsUrl, Map<String, Task> tasks, String bucketName,
+                             AmazonS3Client s3, AmazonSQSClient sqs) {
         this.workers2ManagerSqsUrl = workers2ManagerSqsUrl;
         this.tasks = tasks;
         this.bucketName = bucketName;
+        this.s3 = s3;
+        this.sqs = sqs;
     }
 
     public void run() {
-        initAWSServices();
-
         while (true) {
             Message response = receiveResponseMessage(workers2ManagerSqsUrl);
             if (response != null) {
@@ -51,21 +52,6 @@ public class ResponsesReceiver implements Runnable {
                     uploadSummaryToS3AndSendMsg(lastProcessedTaskID, lastProcessedTask);
             }
         }
-    }
-
-    private void initAWSServices() {
-        // to delete!
-        // credentialsProvider = new AWSStaticCredentialsProvider(new ProfileCredentialsProvider().getCredentials());
-        s3 = (AmazonS3Client) AmazonS3ClientBuilder.standard()
-                //remove      .withCredentials(credentialsProvider)
-                .withCredentials(new InstanceProfileCredentialsProvider(false))
-                .withRegion("us-east-1")
-                .build();
-        sqs = (AmazonSQSClient) AmazonSQSClientBuilder.standard()
-                //remove      .withCredentials(credentialsProvider)
-                .withCredentials(new InstanceProfileCredentialsProvider(false))
-                .withRegion("us-east-1")
-                .build();
     }
 
     private Message receiveResponseMessage(String sqsUrl) {

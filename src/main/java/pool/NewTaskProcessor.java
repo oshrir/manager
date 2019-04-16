@@ -26,32 +26,33 @@ import java.util.UUID;
 public class NewTaskProcessor implements Runnable {
     final private String AMI_ID = "ami-0ff8a91507f77f867";
     final private String IAM_ROLE = "dps_ass1_role_v2";
+    final private String JAR_NAME = "dps_ass1_worker.jar";
+    final private String KEYPAIR_NAME = "testKey";
     private String bucketName;
 
     private String manager2LocalSqsUrl;
     private String manager2WorkersSqsUrl;
-    private String workers2ManagerSqsUrl;
     private String key;
     private String taskID;
     private int messagePerWorker;
     private AmazonSQSClient sqs;
     private AmazonS3Client s3;
-    private AmazonEC2Client ec2;
     private List<Instance> workers;
     private Map<String, Task> tasks;
 
     public NewTaskProcessor(Map<String, MessageAttributeValue> msgAttributes, String bucketName,
-                          String manager2WorkersSqsUrl, String workers2ManagerSqsUrl, List<Instance> workers,
-                          Map<String, Task> tasks) {
+                            String manager2WorkersSqsUrl, List<Instance> workers, Map<String, Task> tasks,
+                            AmazonS3Client s3, AmazonSQSClient sqs) {
         this.bucketName = bucketName;
         this.manager2WorkersSqsUrl = manager2WorkersSqsUrl;
-        this.workers2ManagerSqsUrl = workers2ManagerSqsUrl;
         manager2LocalSqsUrl = msgAttributes.get("output_sqs").getStringValue();
         key = msgAttributes.get("key").getStringValue();
         messagePerWorker = Integer.parseInt(msgAttributes.get("n").getStringValue());
         taskID = "task" + UUID.randomUUID();
         this.workers = workers;
         this.tasks = tasks;
+        this.s3 = s3;
+        this.sqs = sqs;
     }
 
     /**
@@ -67,27 +68,11 @@ public class NewTaskProcessor implements Runnable {
      */
     public void run() {
 
-        sqs = (AmazonSQSClient) AmazonSQSClientBuilder.standard()
-                //remove      .withCredentials(credentialsProvider)
-                .withCredentials(new InstanceProfileCredentialsProvider(false))
-                .withRegion("us-east-1")
-                .build();
-        s3 = (AmazonS3Client) AmazonS3ClientBuilder.standard()
-                //remove      .withCredentials(credentialsProvider)
-                .withCredentials(new InstanceProfileCredentialsProvider(false))
-                .withRegion("us-east-1")
-                .build();
-        ec2 = (AmazonEC2Client) AmazonEC2ClientBuilder.standard()
-                //remove      .withCredentials(credentialsProvider)
-                .withCredentials(new InstanceProfileCredentialsProvider(false))
-                .withRegion("us-east-1")
-                .build();
-
         int newMsgsCounter;
         try {
             newMsgsCounter = processNewTask(key, taskID);
-            Task newTask = new Task(manager2LocalSqsUrl, newMsgsCounter);
-            tasks.put(taskID, newTask);
+            tasks.put(taskID, new Task(manager2LocalSqsUrl, newMsgsCounter));
+
             createWorkersIfNeeded(newMsgsCounter / messagePerWorker);
 
             assert new File(taskID + "_summary.txt").createNewFile();
@@ -95,7 +80,6 @@ public class NewTaskProcessor implements Runnable {
             e.printStackTrace();
         }
     }
-
 
     // process the new task, create sqs msgs, returns the number of tasks created
     private int processNewTask (String key, final String taskID) throws IOException {
@@ -122,36 +106,11 @@ public class NewTaskProcessor implements Runnable {
         return counter;
     }
 
-    // create the needed number of new instances (TODO - insert bucket and key)
+    // create the needed number of new instances
     private void createWorkersIfNeeded(int numOfNeededWorkers) {
         int amountOfWorkersToCreate = numOfNeededWorkers - workers.size();
         if (amountOfWorkersToCreate > 0) {
-            // TODO - bucket and key? create a new keyPair?
-            RunInstancesRequest request = new RunInstancesRequest(AMI_ID, amountOfWorkersToCreate, amountOfWorkersToCreate)
-                    .withIamInstanceProfile(new IamInstanceProfileSpecification().withName(IAM_ROLE))
-                    //.withIamInstanceProfile(new IamInstanceProfileSpecification().withName("Manager"))
-                    .withInstanceType(InstanceType.T2Micro.toString())
-                    // TODO - this should be the location of the jar file
-                    .withUserData(makeScript("dps_ass1_worker.jar"))
-                    .withKeyName("testKey");
-                    //.withKeyName("oshrir");
-            List<Instance> newInstances = ec2.runInstances(request).getReservation().getInstances();
-            for(Instance instance : newInstances) {
-                CreateTagsRequest createTagsRequest = new CreateTagsRequest()
-                        .withResources(instance.getInstanceId())
-                        .withTags(new Tag("type", "Worker"));
-                ec2.createTags(createTagsRequest);
-            }
-            workers.addAll(newInstances);
+            Manager.createNewWorkers(amountOfWorkersToCreate);
         }
-    }
-
-    private String makeScript (String keyName) {
-        String scriptSplit =
-                "#! /bin/bash \n" +
-                        "wget https://s3.amazonaws.com/" + bucketName + "/" + keyName + " -O ./" + keyName + " \n" +
-                        "java -jar " + keyName + " " + manager2WorkersSqsUrl + " " + workers2ManagerSqsUrl + " " +
-                        bucketName;
-        return new String (Base64.encodeBase64(scriptSplit.getBytes()));
     }
 }
