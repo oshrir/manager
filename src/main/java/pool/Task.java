@@ -19,9 +19,7 @@ public class Task {
 
     public void incJobs() { doneJobs++; }
 
-    public boolean isDone() {
-        return totalJobs == doneJobs;
-    }
+    public boolean isDone() { return totalJobs == doneJobs; }
 
     public void setSent() { sent = true; }
 

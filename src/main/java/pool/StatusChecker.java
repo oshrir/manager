@@ -22,8 +22,7 @@ public class StatusChecker implements Runnable {
             for (InstanceStatus status : result.getInstanceStatuses()) {
                 String instanceStatus = status.getInstanceStatus().getStatus();
                 String systemStatus = status.getSystemStatus().getStatus();
-                if (!(("Ok".equals(instanceStatus) || "Initializing".equals(instanceStatus)) &&
-                        ("Ok".equals(systemStatus) || "Initializing".equals(systemStatus)))) {
+                if ("impaired".equals(instanceStatus) || "impaired".equals(systemStatus)) {
                     String instanceID2Terminate = status.getInstanceId();
                     ec2.terminateInstances(new TerminateInstancesRequest().withInstanceIds(instanceID2Terminate));
 
