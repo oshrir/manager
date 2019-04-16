@@ -92,7 +92,7 @@ public class ResponsesReceiver implements Runnable {
     // upload the summary file to s3 and send sqs msg to the local computer with s3 location of the sum-file
     private void uploadSummaryToS3AndSendMsg (String doneTaskID, Task doneTask) {
         final String outputKey = doneTaskID + "_summary.txt";
-        s3.putObject(new PutObjectRequest(bucketName, outputKey, new File(outputKey))
+        s3.putObject(new PutObjectRequest(bucketName, "output/summary/" + outputKey, new File(outputKey))
                 .withCannedAcl(CannedAccessControlList.PublicRead));
 
         sqs.sendMessage(new SendMessageRequest(doneTask.getResponseSqsUrl(), "done task")
@@ -100,7 +100,7 @@ public class ResponsesReceiver implements Runnable {
                     {
                         put("key", new MessageAttributeValue()
                                 .withDataType("String")
-                                .withStringValue(outputKey));
+                                .withStringValue("output/summary/" + outputKey));
                     }}));
         doneTask.setSent();
     }

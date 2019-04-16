@@ -1,6 +1,9 @@
 package pool;
 
+import com.amazonaws.auth.AWSCredentialsProvider;
+import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.InstanceProfileCredentialsProvider;
+import com.amazonaws.auth.profile.ProfileCredentialsProvider;
 import com.amazonaws.services.ec2.AmazonEC2Client;
 import com.amazonaws.services.ec2.AmazonEC2ClientBuilder;
 import com.amazonaws.services.ec2.model.*;
@@ -20,15 +23,16 @@ import java.util.concurrent.Executors;
 public class Manager {
     //MACROS//
     final private static String AMI_ID = "ami-0ff8a91507f77f867";
-    final private static String IAM_ROLE = "dps_ass1_role_v2";
+    final private static String IAM_ROLE = /*"dps_ass1_role_v2"*/ "Manager";
     final private static String JAR_NAME = "dps_ass1_worker.jar";
-    final private static String KEYPAIR_NAME = "testKey";
+    final private static String KEYPAIR_NAME = /*"testKey"*/ "oshrir";
 
     //received from the first local app (will be a macro in local app)
     private static String bucketName = "";
 
     private static String manager2WorkersSqsUrl;
     private static String workers2ManagerSqsUrl;
+    private static String local2ManagerSqsUrl;
 
     private static AmazonSQSClient sqs;
     private static AmazonS3Client s3;
@@ -41,7 +45,7 @@ public class Manager {
     // private static AWSCredentialsProvider credentialsProvider;
 
     public static void main(String[] args) throws Exception {
-        String local2ManagerSqsUrl = args[0];
+        local2ManagerSqsUrl = args[0];
         bucketName = args[1];
         workers = new ArrayList<Instance>();
         tasks = new HashMap<String, Task>();
@@ -63,7 +67,7 @@ public class Manager {
         while (true) {
             Message message = receiveNewTaskMessage(local2ManagerSqsUrl);
             if (message != null) {
-                if (message.getMessageAttributes().get("task_type").equals("terminate")) {
+                if (message.getMessageAttributes().get("task_type").getStringValue().equals("terminate")) {
                     sqs.deleteMessage(local2ManagerSqsUrl, message.getReceiptHandle());
                     break;
                 }
@@ -82,17 +86,17 @@ public class Manager {
         // to delete - only for local tests
         // credentialsProvider = new AWSStaticCredentialsProvider(new ProfileCredentialsProvider().getCredentials());
         sqs = (AmazonSQSClient) AmazonSQSClientBuilder.standard()
-                //remove      .withCredentials(credentialsProvider)
+                /*.withCredentials(credentialsProvider)*/
                 .withCredentials(new InstanceProfileCredentialsProvider(false))
                 .withRegion("us-east-1")
                 .build();
         ec2 = (AmazonEC2Client) AmazonEC2ClientBuilder.standard()
-                //remove      .withCredentials(credentialsProvider)
+                /*.withCredentials(credentialsProvider)*/
                 .withCredentials(new InstanceProfileCredentialsProvider(false))
                 .withRegion("us-east-1")
                 .build();
         s3 = (AmazonS3Client) AmazonS3ClientBuilder.standard()
-                //remove      .withCredentials(credentialsProvider)
+                /*.withCredentials(credentialsProvider)*/
                 .withCredentials(new InstanceProfileCredentialsProvider(false))
                 .withRegion("us-east-1")
                 .build();
@@ -102,7 +106,6 @@ public class Manager {
         ReceiveMessageRequest receiveMessageRequest = new ReceiveMessageRequest(sqsUrl)
                 .withMaxNumberOfMessages(1)
                 .withMessageAttributeNames(Collections.singleton("All"))
-                //.withMessageAttributeNames("task_type", "bucket_name", "key", "output_sqs", "n")
                 .withAttributeNames("");
         List<Message> messages = sqs.receiveMessage(receiveMessageRequest).getMessages();
         if (messages.isEmpty())
@@ -135,6 +138,7 @@ public class Manager {
         // delete all queues and shutdown the sqs client
         sqs.deleteQueue(manager2WorkersSqsUrl);
         sqs.deleteQueue(workers2ManagerSqsUrl);
+        sqs.deleteQueue(local2ManagerSqsUrl);
         sqs.shutdown();
 
         // terminates itself
@@ -148,11 +152,6 @@ public class Manager {
                 .withUserData(makeScript(JAR_NAME))
                 .withKeyName(KEYPAIR_NAME);
         List<Instance> newInstances = ec2.runInstances(request).getReservation().getInstances();
-        for(Instance instance : newInstances) {
-            ec2.createTags(new CreateTagsRequest()
-                    .withResources(instance.getInstanceId())
-                    .withTags(new Tag("type", "Worker")));
-        }
         workers.addAll(newInstances);
     }
 
