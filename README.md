@@ -1,6 +1,6 @@
 Distributed PDF Converter
 =========================
-Stav Faran - XXXXXXXXX, Oshri Rozenberg - 204354344
+Stav Faran - 308096270, Oshri Rozenberg - 204354344
 
 Running instruction:
 --------------------
