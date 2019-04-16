@@ -1,20 +1,27 @@
-# manager
+Distributed PDF Converter
+=========================
+Stav Faran - XXXXXXXXX, Oshri Rozenberg - 204354344
 
-Be sure to submit a README file. Does it contain all the requested information? If you miss any part, you will lose points. Yes including your names and ids.
+Running instruction:
+--------------------
+TODO
 
-### Security:
+Security:
+---------
 We still need to understand how to transfer the credentials to the local app (or we doesnt have to?), but besides that - the manager and all of the workers get temporary credentials from their IAM role - which means we don't transfer them credentials at all, particulary not as plain text.
 
+Scalability:
+------------
+The thread pool enables the manager to deal with a big amount of clients that are running at the same time.
+TODO - add more.
+~~Did you think about scalability? Will your program work properly when 1 million clients connected at the same time? How about 2 million? 1 billion? Scalability is very important aspect of the system, be sure it is scalable!~~
 
-
-Did you think about scalability? Will your program work properly when 1 million clients connected at the same time? How about 2 million? 1 billion? Scalability is very important aspect of the system, be sure it is scalable!
-
-
+Persistence:
+------------
 What about persistence? What if a node dies? What if a node stalls for a while? Have you taken care of all possible outcomes in the system? Think of more possible issues that might arise from failures. What did you do to solve it? What about broken communications? Be sure to handle all fail-cases!
 
-
-
-### Threads:
+Threads:
+--------
 We used threads in our Manager - one thread which operates the thread pool for the clients, and another thread that processes the responses from the workers. This is the only place where we thought it is neccessary to use threads in out application, so we could handle a big amount of clients at the same time.
 
 
