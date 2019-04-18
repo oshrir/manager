@@ -24,10 +24,6 @@ import java.util.Map;
 import java.util.UUID;
 
 public class NewTaskProcessor implements Runnable {
-    final private String AMI_ID = "ami-0ff8a91507f77f867";
-    final private String IAM_ROLE = "dps_ass1_role_v2";
-    final private String JAR_NAME = "dps_ass1_worker.jar";
-    final private String KEYPAIR_NAME = "testKey";
     private String bucketName;
 
     private String manager2LocalSqsUrl;
@@ -55,17 +51,6 @@ public class NewTaskProcessor implements Runnable {
         this.sqs = sqs;
     }
 
-    /**
-     * When an object implementing interface <code>Runnable</code> is used
-     * to create a thread, starting the thread causes the object's
-     * <code>run</code> method to be called in that separately executing
-     * thread.
-     * <p>
-     * The general contract of the method <code>run</code> is that it may
-     * take any action whatsoever.
-     *
-     * @see Thread#run()
-     */
     public void run() {
 
         int newMsgsCounter;
@@ -108,7 +93,9 @@ public class NewTaskProcessor implements Runnable {
 
     // create the needed number of new instances
     private void createWorkersIfNeeded(int numOfNeededWorkers) {
-        int amountOfWorkersToCreate = numOfNeededWorkers - workers.size();
+        // consider the AWS limitation for amount of new instances
+        int revisedNumOfNeededWorkers = (numOfNeededWorkers > 19) ? 19 : numOfNeededWorkers;
+        int amountOfWorkersToCreate = revisedNumOfNeededWorkers - workers.size();
         if (amountOfWorkersToCreate > 0) {
             Manager.createNewWorkers(amountOfWorkersToCreate);
         }

@@ -65,7 +65,7 @@ public class Manager {
         ExecutorService pool = Executors.newCachedThreadPool(Executors.defaultThreadFactory());
 
         while (true) {
-            Message message = receiveNewTaskMessage(local2ManagerSqsUrl);
+            Message message = receiveSingleNewMessage(local2ManagerSqsUrl);
             if (message != null) {
                 if (message.getMessageAttributes().get("task_type").getStringValue().equals("terminate")) {
                     sqs.deleteMessage(local2ManagerSqsUrl, message.getReceiptHandle());
@@ -102,15 +102,13 @@ public class Manager {
                 .build();
     }
 
-    private static Message receiveNewTaskMessage(String sqsUrl) {
+    protected static Message receiveSingleNewMessage(String sqsUrl) {
         ReceiveMessageRequest receiveMessageRequest = new ReceiveMessageRequest(sqsUrl)
                 .withMaxNumberOfMessages(1)
                 .withMessageAttributeNames(Collections.singleton("All"))
                 .withAttributeNames("");
         List<Message> messages = sqs.receiveMessage(receiveMessageRequest).getMessages();
-        if (messages.isEmpty())
-            return null;
-        return messages.get(0);
+        return messages.isEmpty() ? null : messages.get(0);
     }
 
     private static void terminate(Thread responsesReceiver, Thread statusChecker) {
