@@ -2,7 +2,7 @@ Distributed PDF Converter
 =========================
 Stav Faran - 308096270, Oshri Rozenberg - 204354344
 
-Running instruction:
+Running instructions:
 --------------------
 TODO
 
@@ -26,13 +26,14 @@ We used threads in our Manager - one thread which operates the thread pool for t
 
 
 
-Did you run more than one client at the same time? Be sure they work properly, and finish properly, and your results are correct.
+
+We ran at least 5 client at the same time, the all worked properly, finished properly and the results are correct.
+
+The termination process is well managed, and everything is closed once requested - local app, manager, workers and queues are deleted.
 
 
 Do you understand how the system works? Do a full run using pen and paper, draw the different parts and the communication that happens between them.
 
-
-Did you manage the termination process? Be sure all is closed once requested!
 
 
 Did you take in mind the system limitations that we are using? Be sure to use it to its fullest!
