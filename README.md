@@ -2,19 +2,33 @@ Distributed PDF Converter
 =========================
 Stav Faran - 308096270, Oshri Rozenberg - 204354344
 
+Description:
+-----------
+This application takes a text file loaded with actions to perform on PDF files (stored all over the internet), ...
+
 Running instructions:
 --------------------
-TODO
+1. Store your AWS credentials in `~/.aws/credentials`
+```
+   [default]
+   aws_access_key_id= ???
+   aws_secret_access_key= ???
+```
+2. blah blah blah
+3. blah blah blah
+4. run using `java -jar PdfConverter.jar inputFileName outputFileName n (terminate)` (terminate is optional)
 
 Security:
 ---------
-We still need to understand how to transfer the credentials to the local app (or we doesnt have to?), but besides that - the manager and all of the workers get temporary credentials from their IAM role - which means we don't transfer them credentials at all, particulary not as plain text.
+The manager and all of the workers get temporary credentials from their IAM role. Therefore, we don't transfer them credentials at all, particulary not as plain text.
 
 Scalability:
 ------------
 The thread pool enables the manager to deal with a big amount of clients that are running at the same time.
 TODO - add more.
 ~~Did you think about scalability? Will your program work properly when 1 million clients connected at the same time? How about 2 million? 1 billion? Scalability is very important aspect of the system, be sure it is scalable!~~
+We ran at least 5 client at the same time, the all worked properly, finished properly and the results are correct.
+While checking our implementation, we noticed that there is a built-in limitation in AWS EC2 regarding the maximum amount of instances we are able to run - maximum of 20 instances at the same time. According to that, we added this limitation to our implementation, so the application won't crush in a case that the manager tries to create instances to a total amount of 20 or more.
 
 Persistence:
 ------------
@@ -27,7 +41,7 @@ We used threads in our Manager - one thread which operates the thread pool for t
 
 
 
-We ran at least 5 client at the same time, the all worked properly, finished properly and the results are correct.
+
 
 The termination process is well managed, and everything is closed once requested - local app, manager, workers and queues are deleted.
 
@@ -36,7 +50,7 @@ Do you understand how the system works? Do a full run using pen and paper, draw 
 
 
 
-Did you take in mind the system limitations that we are using? Be sure to use it to its fullest!
+
 
 
 Are all your workers working hard? Or some are slacking? Why?
