@@ -41,7 +41,7 @@ public class tester2 {
             Message newPdfTask = receiveNewPDFTaskMessage(inputURL, sqs);
             if (newPdfTask != null) {
                 Map<String, MessageAttributeValue> msgAttributes = newPdfTask.getMessageAttributes();
-                String proc = msgAttributes.get("procedure").getStringValue();
+                String proc = msgAttributes.get("action").getStringValue();
                 String url = msgAttributes.get("file_url").getStringValue();
                 final String taskID = msgAttributes.get("task_id").getStringValue();
 
