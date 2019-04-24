@@ -5,6 +5,7 @@ Stav Faran - 308096270, Oshri Rozenberg - 204354344
 Description:
 -----------
 This application takes a text file loaded with actions to perform on PDF files (stored all over the internet), ...
+TODO - add more info about how the program works
 
 Running instructions:
 --------------------
